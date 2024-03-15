@@ -1,5 +1,7 @@
 # growing_neural_gas
 
+[![build](https://github.com/TakumaNakao/growing_neural_gas/actions/workflows/build.yml/badge.svg)](https://github.com/TakumaNakao/growing_neural_gas/actions/workflows/build.yml)
+
 ## What is this?
 Demonstration of Growing-Neural-Gas.
 
