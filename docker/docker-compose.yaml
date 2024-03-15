@@ -1,0 +1,13 @@
+version: '3'
+services:
+  growing_neural_gas:
+    image: takumanakao/growing_neural_gas:latest
+    environment:
+      - DISPLAY=${DISPLAY}
+    volumes:
+      - ../../growing_neural_gas:/home/growing_neural_gas
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /etc/passwd:/etc/passwd:ro
+      - /etc/group:/etc/group:ro
+    working_dir: /home/growing_neural_gas
+    tty: true
