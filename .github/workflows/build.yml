@@ -4,7 +4,7 @@ on: push
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: takumanakao/mathematical_robotics:latest
+    container: takumanakao/growing_neural_gas:latest
     steps:
     - uses: actions/checkout@v2
       with:
