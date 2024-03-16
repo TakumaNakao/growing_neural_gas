@@ -6,6 +6,7 @@
 
 #include <Eigen/Dense>
 #include <matplot/matplot.h>
+#include <open3d/Open3D.h>
 
 template<size_t D>
 class GrowingNeuralGas {
@@ -167,5 +168,80 @@ public:
             }
             matplot::plot3(x, y, z, "-o")->line_width(3).color("black");
         }
+    }
+    std::shared_ptr<open3d::geometry::PointCloud> to_open3d_point_cloud() const
+    {
+        std::vector<Eigen::Vector3d> point_cloud;
+        point_cloud.resize(nodes_.size());
+        for (const auto& node : nodes_) {
+            point_cloud.push_back(node->p().head(3));
+        }
+        auto point_cloud_pcd = std::make_shared<open3d::geometry::PointCloud>(point_cloud);
+        point_cloud_pcd->PaintUniformColor({0.0, 0.0, 0.0});
+        return point_cloud_pcd;
+    }
+    std::shared_ptr<open3d::geometry::LineSet> to_open3d_line_set() const
+    {
+        auto line_set = std::make_shared<open3d::geometry::LineSet>();
+        line_set->points_.reserve(nodes_.size());
+        for (const auto& node : nodes_) {
+            line_set->points_.push_back(node->p().head(3));
+        }
+        // std::vector<NodeSharedPtr> close_nodes;
+        // std::vector<Eigen::Vector3d> color_list = {
+        //     {0.0, 0.0, 0.0}, //
+        //     {1.0, 0.0, 0.0}, //
+        //     {0.0, 1.0, 0.0}, //
+        //     {0.0, 0.0, 1.0}, //
+        //     {1.0, 1.0, 0.0}, //
+        //     {1.0, 0.0, 1.0}, //
+        //     {0.0, 1.0, 1.0}, //
+        //     {0.5, 1.0, 0.0}, //
+        //     {0.0, 0.5, 1.0}, //
+        //     {1.0, 0.5, 0.0}, //
+        //     {0.0, 1.0, 0.5}, //
+        //     {1.0, 0.0, 0.5}, //
+        //     {0.5, 0.0, 1.0}, //
+        //     {0.5, 1.0, 1.0}, //
+        //     {1.0, 0.5, 1.0}, //
+        //     {1.0, 1.0, 0.5}, //
+        //     {0.5, 0.5, 1.0}, //
+        //     {0.5, 1.0, 0.5}, //
+        //     {1.0, 0.5, 0.5}, //
+        // };
+        // size_t color_idx = 0;
+        // for (const auto& node : nodes_) {
+        //     if (std::find(close_nodes.begin(), close_nodes.end(), node) != close_nodes.end()) {
+        //         continue;
+        //     }
+        //     std::vector<NodeSharedPtr> serch_nodes;
+        //     serch_nodes.push_back(node);
+        //     while (serch_nodes.size() > 0) {
+        //         auto serch_node = serch_nodes.back();
+        //         serch_nodes.pop_back();
+        //         close_nodes.push_back(serch_node);
+        //         for (const auto& edge : serch_node->edges()) {
+        //             if (auto r_edge = edge.lock()) {
+        //                 auto other_node = r_edge->get_connect_node(serch_node);
+        //                 if (std::find(close_nodes.begin(), close_nodes.end(), other_node) == close_nodes.end()) {
+        //                     serch_nodes.push_back(other_node);
+        //                     size_t p1_idx = std::distance(nodes_.begin(), std::find(nodes_.begin(), nodes_.end(), r_edge->node_ptrs()[0]));
+        //                     size_t p2_idx = std::distance(nodes_.begin(), std::find(nodes_.begin(), nodes_.end(), r_edge->node_ptrs()[1]));
+        //                     line_set->lines_.push_back({p1_idx, p2_idx});
+        //                     line_set->colors_.push_back(color_list[color_idx % color_list.size()]);
+        //                 }
+        //             }
+        //         }
+        //     }
+        //     color_idx++;
+        // }
+        line_set->lines_.reserve(edges_.size());
+        for (const auto& edge : edges_) {
+            size_t p1_idx = std::distance(nodes_.begin(), std::find(nodes_.begin(), nodes_.end(), edge->node_ptrs()[0]));
+            size_t p2_idx = std::distance(nodes_.begin(), std::find(nodes_.begin(), nodes_.end(), edge->node_ptrs()[1]));
+            line_set->lines_.push_back({p1_idx, p2_idx});
+        }
+        line_set->PaintUniformColor({0.0, 0.0, 0.0});
+        return line_set;
     }
 };

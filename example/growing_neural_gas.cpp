@@ -26,7 +26,7 @@ int main()
     std::uniform_real_distribution<> pos_rand(-point_cloud_range, point_cloud_range);
     std::uniform_real_distribution<> error_rand(-0.1, 0.1);
 
-    constexpr size_t point_cloud_num = 900;
+    constexpr size_t point_cloud_num = 6000;
 
     std::vector<Eigen::Vector3d> point_cloud;
     std::vector<Eigen::Vector3d> plane_x;
@@ -50,52 +50,65 @@ int main()
     std::copy(plane_y.begin(), plane_y.end(), std::back_inserter(point_cloud));
     std::copy(plane_z.begin(), plane_z.end(), std::back_inserter(point_cloud));
 
-    // auto plane_x_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_x);
-    // plane_x_pcd->PaintUniformColor({1.0, 0.0, 0.0});
-    // auto plane_y_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_y);
-    // plane_y_pcd->PaintUniformColor({0.0, 1.0, 0.0});
-    // auto plane_z_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_z);
-    // plane_z_pcd->PaintUniformColor({0.0, 0.0, 1.0});
+    auto plane_x_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_x);
+    plane_x_pcd->PaintUniformColor({1.0, 0.0, 0.0});
+    auto plane_y_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_y);
+    plane_y_pcd->PaintUniformColor({0.0, 1.0, 0.0});
+    auto plane_z_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_z);
+    plane_z_pcd->PaintUniformColor({0.0, 0.0, 1.0});
     // open3d::visualization::DrawGeometries({plane_x_pcd, plane_y_pcd, plane_z_pcd});
 
     auto all_pcd = std::make_shared<open3d::geometry::PointCloud>(point_cloud);
     all_pcd->EstimateNormals();
     // open3d::visualization::DrawGeometries({all_pcd}, "Point Cloud", 640, 480, 50, 50, true);
 
-    std::vector<Eigen::Vector3d> result;
-    std::sample(point_cloud.begin(), point_cloud.end(), std::back_inserter(result), 2, engine);
-    GrowingNeuralGas<3> gng({result[0], result[1]});
-
-    plt::hold(plt::on);
-    plot_helper::plot_point_cloud(plane_x, "blue");
-    plot_helper::plot_point_cloud(plane_y, "red");
-    plot_helper::plot_point_cloud(plane_z, "green");
-    plt::hold(plt::off);
-    plt::save("img/start.png");
-    plt::cla();
-
-    for (size_t i = 0; i < 10000; i++) {
-        std::vector<Eigen::Vector3d> result;
-        std::sample(point_cloud.begin(), point_cloud.end(), std::back_inserter(result), 1, engine);
-        gng.update(result[0], 0.2, 0.006, 50, 100, 0.5, 0.995);
-
-        if (i % 100 == 0) {
-            plt::hold(plt::on);
-            plot_helper::plot_point_cloud(plane_x, "blue");
-            plot_helper::plot_point_cloud(plane_y, "red");
-            plot_helper::plot_point_cloud(plane_z, "green");
-            gng.plot();
-            plt::hold(plt::off);
-            plt::save("img/" + std::to_string(i) + ".png");
-            plt::cla();
-        }
+    std::uniform_int_distribution<> sample_rand(0, point_cloud.size() - 1);
+    int rand1 = sample_rand(engine);
+    int rand2 = sample_rand(engine);
+    while (rand1 == rand2) {
+        rand2 = sample_rand(engine);
     }
-    plt::hold(plt::on);
-    plot_helper::plot_point_cloud(plane_x, "blue");
-    plot_helper::plot_point_cloud(plane_y, "red");
-    plot_helper::plot_point_cloud(plane_z, "green");
-    gng.plot();
-    plt::hold(plt::off);
-    plt::save("img/end.png");
-    plt::cla();
+
+    const double normals_weight = 0.0;
+
+    Eigen::Vector6d rand1_vec;
+    rand1_vec << all_pcd->points_[rand1], normals_weight * all_pcd->normals_[rand1];
+    Eigen::Vector6d rand2_vec;
+    rand2_vec << all_pcd->points_[rand2], normals_weight * all_pcd->normals_[rand2];
+    GrowingNeuralGas<6> gng({rand1_vec, rand2_vec});
+
+    // plt::hold(plt::on);
+    // plot_helper::plot_point_cloud(plane_x, "blue");
+    // plot_helper::plot_point_cloud(plane_y, "red");
+    // plot_helper::plot_point_cloud(plane_z, "green");
+    // plt::hold(plt::off);
+    // plt::save("img/start.png");
+    // plt::cla();
+
+    for (size_t i = 0; i < 300000; i++) {
+        int rand = sample_rand(engine);
+        Eigen::Vector6d p;
+        p << all_pcd->points_[rand], normals_weight * all_pcd->normals_[rand];
+        gng.update(p, 0.2, 0.006, 50, 100, 0.5, 0.995);
+
+        // if (i % 100 == 0) {
+        //     plt::hold(plt::on);
+        //     plot_helper::plot_point_cloud(plane_x, "blue");
+        //     plot_helper::plot_point_cloud(plane_y, "red");
+        //     plot_helper::plot_point_cloud(plane_z, "green");
+        //     gng.plot();
+        //     plt::hold(plt::off);
+        //     plt::save("img/" + std::to_string(i) + ".png");
+        //     plt::cla();
+        // }
+    }
+    open3d::visualization::DrawGeometries({plane_x_pcd, plane_y_pcd, plane_z_pcd, gng.to_open3d_point_cloud(), gng.to_open3d_line_set()});
+    // plt::hold(plt::on);
+    // plot_helper::plot_point_cloud(plane_x, "blue");
+    // plot_helper::plot_point_cloud(plane_y, "red");
+    // plot_helper::plot_point_cloud(plane_z, "green");
+    // gng.plot();
+    // plt::hold(plt::off);
+    // plt::save("img/end.png");
+    // plt::show();
 }
