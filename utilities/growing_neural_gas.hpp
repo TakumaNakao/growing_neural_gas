@@ -7,64 +7,64 @@
 #include <Eigen/Dense>
 #include <matplot/matplot.h>
 
+template<size_t D>
 class GrowingNeuralGas {
 public:
     class Edge;
-    class Node {
-    public:
-        using SharedPtr = std::shared_ptr<Node>;
+    class Node;
+    using NodeSharedPtr = std::shared_ptr<Node>;
+    using EdgeSharedPtr = std::shared_ptr<Edge>;
+    using EdgeWeakPtr = std::weak_ptr<Edge>;
 
+    class Node {
     private:
-        Eigen::Vector3d p_;
-        std::vector<std::weak_ptr<Edge>> edges_;
+        Eigen::Matrix<double, D, 1> p_;
+        std::vector<EdgeWeakPtr> edges_;
         double error_ = 0;
 
     public:
-        Node(Eigen::Vector3d p, std::vector<std::weak_ptr<Edge>> edges = {}) : p_(p), edges_(edges) {}
-        void add_edge(std::weak_ptr<Edge> edge) { edges_.push_back(edge); }
-        void update_p(const Eigen::Vector3d& p, double eps) { p_ += eps * (p - p_); }
+        Node(Eigen::Matrix<double, D, 1> p, std::vector<EdgeWeakPtr> edges = {}) : p_(p), edges_(edges) {}
+        void add_edge(EdgeWeakPtr edge) { edges_.push_back(edge); }
+        void update_p(const Eigen::Matrix<double, D, 1>& p, double eps) { p_ += eps * (p - p_); }
         void set_error(double error) { error_ = error; }
-        Eigen::Vector3d p() const { return p_; }
+        Eigen::Matrix<double, D, 1> p() const { return p_; }
         double error() const { return error_; }
-        std::vector<std::weak_ptr<Edge>> edges() const { return edges_; }
+        std::vector<EdgeWeakPtr> edges() const { return edges_; }
     };
     class Edge {
-    public:
-        using SharedPtr = std::shared_ptr<Edge>;
-
     private:
-        std::array<Node::SharedPtr, 2> node_ptrs_;
+        std::array<NodeSharedPtr, 2> node_ptrs_;
         double distance_;
 
     public:
         size_t age;
-        Edge(std::array<Node::SharedPtr, 2> node_ptrs, size_t _age = 0) : node_ptrs_(node_ptrs), age(_age)
+        Edge(std::array<NodeSharedPtr, 2> node_ptrs, size_t _age = 0) : node_ptrs_(node_ptrs), age(_age)
         {
             assert(node_ptrs_[0] && node_ptrs_[1]);
             distance_ = (node_ptrs_[0]->p() - node_ptrs_[1]->p()).norm();
         }
-        Edge(Node::SharedPtr node_ptr1, Node::SharedPtr node_ptr2, size_t _age = 0) : Edge({node_ptr1, node_ptr2}, _age) {}
-        Node::SharedPtr get_connect_node(Node::SharedPtr node) const
+        Edge(NodeSharedPtr node_ptr1, NodeSharedPtr node_ptr2, size_t _age = 0) : Edge({node_ptr1, node_ptr2}, _age) {}
+        NodeSharedPtr get_connect_node(NodeSharedPtr node) const
         {
             assert(node_ptrs_[0] == node || node_ptrs_[1] == node);
             return node_ptrs_[0] == node ? node_ptrs_[1] : node_ptrs_[0];
         }
         double distance() const { return distance_; }
-        std::array<Node::SharedPtr, 2> node_ptrs() const { return node_ptrs_; }
+        std::array<NodeSharedPtr, 2> node_ptrs() const { return node_ptrs_; }
     };
 
 private:
-    std::vector<Node::SharedPtr> nodes_;
-    std::vector<Edge::SharedPtr> edges_;
+    std::vector<NodeSharedPtr> nodes_;
+    std::vector<EdgeSharedPtr> edges_;
     size_t update_count_ = 0;
 
-    std::tuple<Node::SharedPtr, Node::SharedPtr> serch_shortest_node(const Eigen::Vector3d& p) const
+    std::tuple<NodeSharedPtr, NodeSharedPtr> serch_shortest_node(const Eigen::Matrix<double, D, 1>& p) const
     {
         assert(nodes_.size() >= 2);
         double first_min_distance = std::numeric_limits<double>::max();
         double second_min_distance = std::numeric_limits<double>::max();
-        Node::SharedPtr first_min_node = nullptr;
-        Node::SharedPtr seconsd_min_node = nullptr;
+        NodeSharedPtr first_min_node = nullptr;
+        NodeSharedPtr seconsd_min_node = nullptr;
         for (const auto& node : nodes_) {
             if (double d = (node->p() - p).norm(); d < first_min_distance) {
                 second_min_distance = first_min_distance;
@@ -80,7 +80,7 @@ private:
         return {first_min_node, seconsd_min_node};
     }
 
-    void add_edge(Node::SharedPtr node_ptr1, Node::SharedPtr node_ptr2)
+    void add_edge(NodeSharedPtr node_ptr1, NodeSharedPtr node_ptr2)
     {
         edges_.push_back(std::make_shared<Edge>(node_ptr1, node_ptr2));
         node_ptr1->add_edge(edges_.back());
@@ -88,14 +88,14 @@ private:
     }
 
 public:
-    GrowingNeuralGas(std::array<Eigen::Vector3d, 2> points)
+    GrowingNeuralGas(std::array<Eigen::Matrix<double, D, 1>, 2> points)
     {
         for (const auto& p : points) {
             nodes_.push_back(std::make_shared<Node>(p));
         }
         add_edge(nodes_[0], nodes_[1]);
     }
-    void update(const Eigen::Vector3d& p, double eps1, double eps2, double max_age, size_t lambda, double alpha, double beta)
+    void update(const Eigen::Matrix<double, D, 1>& p, double eps1, double eps2, double max_age, size_t lambda, double alpha, double beta)
     {
         {
             auto [first_min_node, second_min_node] = serch_shortest_node(p);
@@ -120,17 +120,17 @@ public:
             }
         }
         {
-            std::erase_if(edges_, [&max_age](Edge::SharedPtr edge) { return edge->age > max_age; });
-            std::erase_if(nodes_, [](Node::SharedPtr node) { return node.use_count() == 1; });
+            std::erase_if(edges_, [&max_age](EdgeSharedPtr edge) { return edge->age > max_age; });
+            std::erase_if(nodes_, [](NodeSharedPtr node) { return node.use_count() == 1; });
         }
 
         update_count_++;
 
         if (update_count_ >= lambda) {
             update_count_ = 0;
-            auto max_error_node = *std::max_element(nodes_.begin(), nodes_.end(), [](const Node::SharedPtr& a, const Node::SharedPtr& b) { return a->error() < b->error(); });
+            auto max_error_node = *std::max_element(nodes_.begin(), nodes_.end(), [](const NodeSharedPtr& a, const NodeSharedPtr& b) { return a->error() < b->error(); });
             double max_distance = 0;
-            std::shared_ptr<Edge> max_distance_edge = nullptr;
+            EdgeSharedPtr max_distance_edge = nullptr;
             for (const auto& edge : max_error_node->edges()) {
                 if (auto r = edge.lock()) {
                     if (max_distance < r->distance()) {
@@ -140,10 +140,10 @@ public:
                 }
             }
             auto max_distance_node = max_distance_edge->get_connect_node(max_error_node);
-            Eigen::Vector3d new_p = 0.5 * (max_error_node->p() + max_distance_node->p());
+            Eigen::Matrix<double, D, 1> new_p = 0.5 * (max_error_node->p() + max_distance_node->p());
             auto new_node = std::make_shared<Node>(new_p);
             nodes_.push_back(new_node);
-            std::erase_if(edges_, [&max_distance_edge](Edge::SharedPtr edge) { return edge == max_distance_edge; });
+            std::erase_if(edges_, [&max_distance_edge](EdgeSharedPtr edge) { return edge == max_distance_edge; });
             add_edge(new_node, max_error_node);
             add_edge(new_node, max_distance_node);
 
@@ -157,19 +157,6 @@ public:
     }
     void plot() const
     {
-        // {
-        //     std::vector<double> x, y, z;
-        //     x.reserve(nodes_.size());
-        //     y.reserve(nodes_.size());
-        //     z.reserve(nodes_.size());
-        //     for (const auto& node : nodes_) {
-        //         auto p = node->p();
-        //         x.push_back(p(0));
-        //         y.push_back(p(1));
-        //         z.push_back(p(2));
-        //     }
-        //     matplot::plot3(x, y, z, "o")->marker_size(6).marker_color("black");
-        // }
         for (const auto& edge : edges_) {
             std::vector<double> x, y, z;
             for (const auto& node : edge->node_ptrs()) {

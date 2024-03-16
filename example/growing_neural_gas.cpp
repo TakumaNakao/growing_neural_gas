@@ -10,6 +10,7 @@
 
 #include <Eigen/Dense>
 #include <matplot/matplot.h>
+#include <open3d/Open3D.h>
 
 #include "growing_neural_gas.hpp"
 #include "math_utils.hpp"
@@ -37,21 +38,33 @@ int main()
     plane_y.reserve(point_cloud_num / 3);
     plane_z.reserve(point_cloud_num / 3);
     for (size_t i = 0; i < point_cloud_num / 3; i++) {
-        // plane_z.push_back(Eigen::Vector3d(pos_rand(engine) + error_rand(engine), pos_rand(engine) + error_rand(engine), 0.0));
-        // plane_y.push_back(Eigen::Vector3d(pos_rand(engine) + error_rand(engine), point_cloud_range, pos_rand(engine) + error_rand(engine) + point_cloud_range));
-        // plane_x.push_back(Eigen::Vector3d(point_cloud_range, pos_rand(engine) + error_rand(engine), pos_rand(engine) + error_rand(engine) + point_cloud_range));
+        plane_z.push_back(Eigen::Vector3d(pos_rand(engine) + error_rand(engine), pos_rand(engine) + error_rand(engine), 0.0));
+        plane_y.push_back(Eigen::Vector3d(pos_rand(engine) + error_rand(engine), point_cloud_range, pos_rand(engine) + error_rand(engine) + point_cloud_range));
+        plane_x.push_back(Eigen::Vector3d(point_cloud_range, pos_rand(engine) + error_rand(engine), pos_rand(engine) + error_rand(engine) + point_cloud_range));
 
-        plane_z.push_back(Eigen::Vector3d(pos_rand(engine) + error_rand(engine) - 2, pos_rand(engine) + error_rand(engine) + 1, 0.0));
-        plane_y.push_back(Eigen::Vector3d(pos_rand(engine) + error_rand(engine) + 3, 0.0, pos_rand(engine) + error_rand(engine) - 1));
-        plane_x.push_back(Eigen::Vector3d(0.0, pos_rand(engine) + error_rand(engine) + 1, pos_rand(engine) + error_rand(engine) + 3));
+        // plane_z.push_back(Eigen::Vector3d(pos_rand(engine) + error_rand(engine) - 2, pos_rand(engine) + error_rand(engine) + 1, 0.0));
+        // plane_y.push_back(Eigen::Vector3d(pos_rand(engine) + error_rand(engine) + 3, 0.0, pos_rand(engine) + error_rand(engine) - 1));
+        // plane_x.push_back(Eigen::Vector3d(0.0, pos_rand(engine) + error_rand(engine) + 1, pos_rand(engine) + error_rand(engine) + 3));
     }
     std::copy(plane_x.begin(), plane_x.end(), std::back_inserter(point_cloud));
     std::copy(plane_y.begin(), plane_y.end(), std::back_inserter(point_cloud));
     std::copy(plane_z.begin(), plane_z.end(), std::back_inserter(point_cloud));
 
+    // auto plane_x_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_x);
+    // plane_x_pcd->PaintUniformColor({1.0, 0.0, 0.0});
+    // auto plane_y_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_y);
+    // plane_y_pcd->PaintUniformColor({0.0, 1.0, 0.0});
+    // auto plane_z_pcd = std::make_shared<open3d::geometry::PointCloud>(plane_z);
+    // plane_z_pcd->PaintUniformColor({0.0, 0.0, 1.0});
+    // open3d::visualization::DrawGeometries({plane_x_pcd, plane_y_pcd, plane_z_pcd});
+
+    auto all_pcd = std::make_shared<open3d::geometry::PointCloud>(point_cloud);
+    all_pcd->EstimateNormals();
+    // open3d::visualization::DrawGeometries({all_pcd}, "Point Cloud", 640, 480, 50, 50, true);
+
     std::vector<Eigen::Vector3d> result;
     std::sample(point_cloud.begin(), point_cloud.end(), std::back_inserter(result), 2, engine);
-    GrowingNeuralGas gng({result[0], result[1]});
+    GrowingNeuralGas<3> gng({result[0], result[1]});
 
     plt::hold(plt::on);
     plot_helper::plot_point_cloud(plane_x, "blue");
